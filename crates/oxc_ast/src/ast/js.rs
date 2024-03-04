@@ -1895,6 +1895,7 @@ pub struct Class<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
     pub id: Option<BindingIdentifier<'a>>,
+    /// The base class from which the current one is inherited
     pub super_class: Option<Expression<'a>>,
     pub body: Box<'a, ClassBody<'a>>,
     pub type_parameters: Option<Box<'a, TSTypeParameterDeclaration<'a>>>,
@@ -1921,6 +1922,11 @@ impl<'a> Class<'a> {
     pub fn is_typescript_syntax(&self) -> bool {
         self.is_declare()
     }
+
+    /// Checks whether the class data is inherited from something
+    pub fn has_base_class(&self) -> bool {
+        self.super_class.is_some()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -1938,6 +1944,21 @@ pub struct ClassBody<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
     pub body: Vec<'a, ClassElement<'a>>,
+}
+
+impl<'a> ClassBody<'a> {
+    /// Checks whether the constructor is explicitly declared in the class
+    pub fn has_explicit_constructor(&self) -> bool {
+        self.body.iter().any(|elem| {
+            if let ClassElement::MethodDefinition(method) = elem {
+                if method.kind == MethodDefinitionKind::Constructor {
+                    return true;
+                }
+            }
+
+            false
+        })
+    }
 }
 
 #[derive(Debug, Hash)]
