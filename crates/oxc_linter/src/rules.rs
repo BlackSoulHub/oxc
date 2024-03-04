@@ -91,6 +91,7 @@ mod eslint {
     pub mod no_sparse_arrays;
     pub mod no_this_before_super;
     pub mod no_undef;
+    pub mod no_unreachable;
     pub mod no_unsafe_finally;
     pub mod no_unsafe_negation;
     pub mod no_unsafe_optional_chaining;
@@ -393,6 +394,7 @@ oxc_macros::declare_all_lint_rules! {
     eslint::no_shadow_restricted_names,
     eslint::no_sparse_arrays,
     eslint::no_undef,
+    eslint::no_unreachable,
     eslint::no_unsafe_finally,
     eslint::no_unsafe_negation,
     eslint::no_unsafe_optional_chaining,
