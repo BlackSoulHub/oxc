@@ -12,7 +12,6 @@ use oxc_macros::declare_oxc_lint;
 use oxc_semantic::{AstNode, BasicBlockElement};
 use oxc_span::Span;
 use std::collections::HashSet;
-use std::ops::Deref;
 
 #[derive(Debug, Error, Diagnostic)]
 #[error("eslint(no-unreachable): Disallow unreachable code")]
@@ -68,24 +67,26 @@ declare_oxc_lint!(
 impl Rule for NoUnreachable {
     fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
         match node.kind() {
-            AstKind::Function(ref func) => {
+            AstKind::Function(func) => {
                 let func_name = match func.id {
                     None => return,
                     Some(ref func_name) => func_name.name.as_str(),
                 };
 
                 if func_name != "constructor" {
-                    Self::diagnostic_function(func, ctx)
+                    Self::diagnostic_function(func, ctx);
                 }
             }
-            AstKind::ArrowFunctionExpression(_) => {}
+            AstKind::ArrowFunctionExpression(_) => {
+                todo!()
+            }
             AstKind::Class(class) => Self::diagnostic_class(class, ctx),
             // todo: Add more exactly error message
             AstKind::Program(program) => {
                 for block in &ctx.semantic().cfg().basic_blocks {
                     for element in block {
                         if matches!(element, BasicBlockElement::Unreachable) {
-                            ctx.diagnostic(NoUnreachableDiagnostic(program.span))
+                            ctx.diagnostic(NoUnreachableDiagnostic(program.span));
                         }
                     }
                 }
@@ -103,13 +104,13 @@ impl NoUnreachable {
             for element in block {
                 // todo: fix tests
                 if matches!(element, BasicBlockElement::Unreachable) {
-                    ctx.diagnostic(NoUnreachableDiagnostic(func.span))
+                    ctx.diagnostic(NoUnreachableDiagnostic(func.span));
                 }
             }
         }
     }
 
-    fn diagnostic_class<'a>(class: &'a Class, ctx: &LintContext) {
+    fn diagnostic_class(class: &Class, ctx: &LintContext) {
         let has_base_class = class.has_base_class();
         let has_explicit_constructor = class.body.has_explicit_constructor();
 
@@ -121,7 +122,7 @@ impl NoUnreachable {
             return;
         }
 
-        let constructor = Self::get_constructor(&class).expect("Constructor not found");
+        let constructor = Self::get_constructor(class).expect("Constructor not found");
         let is_constructor_call_super = Self::check_constructor_call_super(constructor);
 
         // If class have base class and constructor calls `super`-constructor.
@@ -152,28 +153,21 @@ impl NoUnreachable {
         let mut initialized_property: HashSet<&str> = HashSet::new();
 
         for statement in &constructor.statements {
-            match statement {
-                Statement::ExpressionStatement(expression_statement) => {
-                    match expression_statement.expression {
-                        Expression::AssignmentExpression(ref assignment) => match assignment.left {
-                            AssignmentTarget::SimpleAssignmentTarget(ref target) => match target {
-                                SimpleAssignmentTarget::MemberAssignmentTarget(
-                                    ref member_expression,
-                                ) => match member_expression.deref() {
-                                    MemberExpression::PrivateFieldExpression(private_field) => {
-                                        initialized_property
-                                            .insert(private_field.field.name.as_str());
-                                    }
-                                    _ => {}
-                                },
-                                _ => {}
-                            },
-                            _ => {}
-                        },
-                        _ => {}
+            if let Statement::ExpressionStatement(expression_statement) = statement {
+                if let Expression::AssignmentExpression(ref assignment) =
+                    expression_statement.expression
+                {
+                    if let AssignmentTarget::SimpleAssignmentTarget(
+                        SimpleAssignmentTarget::MemberAssignmentTarget(ref member_expression),
+                    ) = assignment.left
+                    {
+                        if let MemberExpression::PrivateFieldExpression(private_field) =
+                            &**member_expression
+                        {
+                            initialized_property.insert(private_field.field.name.as_str());
+                        }
                     }
                 }
-                _ => {}
             }
         }
 
@@ -182,7 +176,7 @@ impl NoUnreachable {
                 .iter()
                 .any(|p| *p == property.key.static_name().expect("Name not set").as_str())
             {
-                ctx.diagnostic(NoUnreachableDiagnostic(property.span))
+                ctx.diagnostic(NoUnreachableDiagnostic(property.span));
             }
         }
     }
@@ -190,10 +184,11 @@ impl NoUnreachable {
     fn get_constructor<'a, 'b>(class: &'a Class<'b>) -> Option<&'a MethodDefinition<'b>> {
         for element in &class.body.body {
             match element {
-                ClassElement::MethodDefinition(ref method) => match method.kind {
-                    MethodDefinitionKind::Constructor => return Some(&method),
-                    _ => {}
-                },
+                ClassElement::MethodDefinition(ref method)
+                    if method.kind == MethodDefinitionKind::Constructor =>
+                {
+                    return Some(method)
+                }
                 _ => {}
             }
         }
@@ -207,17 +202,13 @@ impl NoUnreachable {
         };
 
         for statement in &body.statements {
-            match statement {
-                Statement::ExpressionStatement(ref expression_statement) => {
-                    match expression_statement.expression {
-                        Expression::CallExpression(ref expression) => match expression.callee {
-                            Expression::Super(_) => return true,
-                            _ => {}
-                        },
-                        _ => {}
+            if let Statement::ExpressionStatement(ref expression_statement) = statement {
+                if let Expression::CallExpression(ref expression) = expression_statement.expression
+                {
+                    if let Expression::Super(_) = expression.callee {
+                        return true;
                     }
                 }
-                _ => {}
             }
         }
 
@@ -230,14 +221,11 @@ impl NoUnreachable {
         let mut fields = Vec::new();
 
         for class_element in &class.body.body {
-            match class_element {
-                ClassElement::PropertyDefinition(property) => {
-                    // We don't require to check static property initialization
-                    if !property.r#static {
-                        fields.push(property)
-                    }
+            if let ClassElement::PropertyDefinition(property) = class_element {
+                // We don't require to check static property initialization
+                if !property.r#static {
+                    fields.push(property);
                 }
-                _ => {}
             }
         }
 
