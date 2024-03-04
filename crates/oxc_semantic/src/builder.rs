@@ -1216,10 +1216,13 @@ impl<'a> Visit<'a> for SemanticBuilder<'a> {
         /* cfg */
 
         self.visit_expression(&stmt.argument);
-        // todo - put unreachable after throw statement
 
         /* cfg */
         self.cfg.put_throw(throw_expr);
+
+        let _ = self.cfg.new_basic_block();
+        self.cfg.put_unreachable();
+
         self.cfg.after_statement(
             &statement_state,
             self.current_node_id,
