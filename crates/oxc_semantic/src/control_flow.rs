@@ -103,8 +103,11 @@ pub enum CallType {
 
 #[derive(Debug, Clone)]
 pub enum BasicBlockElement {
+    /// Unreachable code
     Unreachable,
+    /// Assigning a variable/field value
     Assignment(Register, AssignmentValue),
+    /// Throw exception
     Throw(Register),
 }
 
